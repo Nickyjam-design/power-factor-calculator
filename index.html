@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบวิเคราะห์ Power Factor & Capacitor Calculator จากใบแจ้งหนี้</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons for aesthetic -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Define Inter font for readability */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Lightened background */
+        }
+        .card {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05); /* Stronger shadow */
+            border-radius: 1.5rem; /* More rounded */
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .input-group input, .input-group select {
+            border: 1px solid #cbd5e1;
+            padding: 0.75rem; /* Slightly bigger padding */
+            border-radius: 0.75rem; /* More rounded input */
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #4f46e5; /* Indigo focus */
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+        }
+        .result-value {
+            font-size: 2.25rem; /* 36px */
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-10 min-h-screen">
+
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center md:text-left flex items-center justify-center md:justify-start">
+            <i data-lucide="plug-zap" class="inline-block w-10 h-10 mr-3 text-indigo-600"></i>
+            ระบบวิเคราะห์ Power Factor & Capacitor Calculator จากใบแจ้งหนี้
+        </h1>
+        <p class="text-gray-600 mb-10 text-center md:text-left">ป้อนข้อมูลจากใบแจ้งหนี้ค่าไฟฟ้า เพื่อคำนวณค่าปรับและขนาดคาปาซิเตอร์ที่ต้องการ</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <!-- INPUT CARD (Column 1) -->
+            <div class="lg:col-span-1 card bg-white p-8 h-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-5 border-b pb-3 flex items-center">
+                    <i data-lucide="receipt" class="w-6 h-6 mr-2 text-blue-600"></i>
+                    ข้อมูลจากใบแจ้งหนี้
+                </h2>
+                <form id="pf-calculator-form" class="space-y-6">
+                    
+                    <!-- Section 1: Tariff -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 flex items-center">
+                            <i data-lucide="tag" class="w-4 h-4 mr-2 text-green-500"></i>
+                            อัตราค่าไฟ
+                        </h3>
+                        
+                        <div class="input-group">
+                            <label for="input-tariff" class="block text-sm font-medium text-gray-700">ประเภทผู้ใช้ไฟฟ้า/อัตราค่าไฟ</label>
+                            <select id="input-tariff" class="mt-1">
+                                <option value="3.1_std" selected>3.1 กิจการขนาดกลาง อัตราปกติ</option>
+                                <option value="3.2_tou">3.2 กิจการขนาดกลาง อัตราตามช่วงเวลาของการใช้ (TOU)</option>
+                                <option value="4.1_tod">4.1 กิจการขนาดใหญ่ อัตราตามช่วงเวลาของวัน (TOD)</option>
+                                <option value="4.2_tou">4.2 กิจการขนาดใหญ่ อัตราตามช่วงเวลาของการใช้ (TOU)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">การเรียกเก็บค่าปรับ PF จะใช้กับประเภท 3 และ 4 เท่านั้น</p>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Key Demand Values (User Input) -->
+                    <div class="space-y-4 pt-4 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 flex items-center">
+                            <i data-lucide="trending-up" class="w-4 h-4 mr-2 text-orange-500"></i>
+                            กำลังไฟฟ้าสูงสุด (Maximum Demand)
+                        </h3>
+                        
+                        <!-- 1. กำลังไฟฟ้าจริงสูงสุด (kW) SPLIT -->
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">1. กำลังไฟฟ้าจริงสูงสุด (kW) แยกตามช่วง</label>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="input-group">
+                                    <label for="input-kW-onpeak" class="block text-xs font-medium text-gray-500">On-peak (kW)</label>
+                                    <input type="number" id="input-kW-onpeak" required placeholder="kW On-peak" class="mt-1" step="0.01" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label for="input-kW-offpeak" class="block text-xs font-medium text-gray-500">Off-peak (kW)</label>
+                                    <input type="number" id="input-kW-offpeak" required placeholder="kW Off-peak" class="mt-1" step="0.01" min="0">
+                                </div>
+                                <div class="input-group">
+                                    <label for="input-kW-holiday" class="block text-xs font-medium text-gray-500">Holiday (kW)</label>
+                                    <input type="number" id="input-kW-holiday" required placeholder="kW Holiday" class="mt-1" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">ใช้ค่าสูงสุดเพื่อคำนวณค่าปรับ</p>
+                        </div>
+                        
+                        <!-- 2. กำลังไฟฟ้ารีแอคทีฟสูงสุด (kVAR) -->
+                        <div class="input-group">
+                            <label class="block text-sm font-medium text-gray-700">2. ข้อมูลกำลังไฟฟ้ารีแอคทีฟ</label>
+                            
+                            <!-- Input Selector -->
+                            <div class="flex space-x-4 mt-2 mb-3">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="kvar-input-mode" value="kvar" class="form-radio text-indigo-600 h-4 w-4" checked>
+                                    <span class="ml-2 text-sm text-gray-700">ป้อน kVAR สูงสุด</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="kvar-input-mode" value="penalty" class="form-radio text-indigo-600 h-4 w-4">
+                                    <span class="ml-2 text-sm text-gray-700">ป้อนค่าปรับ PF (฿)</span>
+                                </label>
+                            </div>
+
+                            <!-- kVAR Input (Default) -->
+                            <div id="input-kvar-container">
+                                <input type="number" id="input-kVAR" required placeholder="ค่า kVAR Demand สูงสุดจากใบแจ้งหนี้" class="mt-1" step="0.01" min="0">
+                            </div>
+
+                            <!-- Penalty Input (Hidden by Default) -->
+                            <div id="input-penalty-container" class="hidden">
+                                <input type="number" id="input-penalty-cost-user" placeholder="ค่าปรับ Power Factor (บาท)" class="mt-1" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Energy Consumption (kWh) and Voltage -->
+                    <div class="space-y-4 pt-4 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 flex items-center">
+                            <i data-lucide="bolt" class="w-4 h-4 mr-2 text-yellow-500"></i>
+                            พลังงานที่ใช้ (kWh) และแรงดัน
+                        </h3>
+                        
+                        <div class="input-group">
+                            <label for="input-voltage" class="block text-sm font-medium text-gray-700">3. แรงดันไฟฟ้า (V)</label>
+                            <select id="input-voltage" class="mt-1">
+                                <option value="220">220 V (1 เฟส)</option>
+                                <option value="380" selected>380 V (3 เฟส)</option>
+                                <option value="3300">3300 V (3 เฟส)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="input-group">
+                                <label for="input-kwh-onpeak" class="block text-xs font-medium text-gray-700">kWh On-peak</label>
+                                <input type="number" id="input-kwh-onpeak" placeholder="0" class="mt-1" step="1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label for="input-kwh-offpeak" class="block text-xs font-medium text-gray-700">kWh Off-peak</label>
+                                <input type="number" id="input-kwh-offpeak" placeholder="0" class="mt-1" step="1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label for="input-kwh-holiday" class="block text-xs font-medium text-gray-700">kWh Holiday</label>
+                                <input type="number" id="input-kwh-holiday" placeholder="0" class="mt-1" step="1" min="0">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">ข้อมูล $\text{kWh}$ ใช้สำหรับอ้างอิงเท่านั้น</p>
+                    </div>
+
+                    <!-- Section: Investment & Target (Removed cost input) -->
+                    <div class="space-y-4 pt-4 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2 flex items-center">
+                            <i data-lucide="target" class="w-4 h-4 mr-2 text-pink-500"></i>
+                            PF เป้าหมาย
+                        </h3>
+
+                        <!-- PF Target -->
+                        <div class="input-group">
+                            <label for="input-target-pf" class="block text-sm font-medium text-gray-700">PF เป้าหมาย (ปรับปรุงไปที่)</label>
+                            <select id="input-target-pf" class="mt-1">
+                                <option value="0.85">0.85 (ค่ามาตรฐาน/ไม่มีค่าปรับ)</option>
+                                <option value="0.90">0.90 (ดี)</option>
+                                <option value="0.95" selected>0.95 (ดีมาก)</option>
+                                <option value="0.99">0.99 (ใกล้เคียงที่สุด)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">ค่ามาตรฐานการไฟฟ้าคือ $\text{0.85}$</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold py-4 mt-6 rounded-2xl shadow-xl shadow-indigo-300 transition duration-300 transform hover:scale-[1.02]">
+                        <i data-lucide="sparkles" class="inline-block w-5 h-5 mr-2"></i>
+                        คำนวณผลลัพธ์
+                    </button>
+                    <div id="error-message" class="text-red-600 text-center text-sm mt-3 hidden"></div>
+                </form>
+            </div>
+
+            <!-- RESULTS CARD (Columns 2 & 3) -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Current Status -->
+                <div class="card bg-white p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                        <i data-lucide="activity" class="w-5 h-5 mr-2 text-blue-600"></i>
+                        สถานะ Power Factor ปัจจุบัน
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                        <!-- PF Current -->
+                        <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <p class="text-sm font-medium text-blue-600">PF ปัจจุบัน</p>
+                            <p id="result-pf-current" class="result-value text-blue-800">-</p>
+                        </div>
+                        <!-- Penalty Cost -->
+                        <div class="p-4 bg-red-50 rounded-xl border border-red-200">
+                            <p class="text-sm font-medium text-red-600">ค่าปรับ PF ต่อเดือน (฿)</p>
+                            <p id="result-penalty-cost" class="result-value text-red-800">-</p>
+                        </div>
+                        <!-- Current S (kVA) -->
+                        <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <p class="text-sm font-medium text-gray-600">กำลังไฟฟ้าปรากฏ ($\text{kVA}$)</p>
+                            <p id="result-apparent-power" class="result-value text-gray-800">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Analysis and Payback -->
+                <div class="card bg-white p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                        <i data-lucide="trending-down" class="w-5 h-5 mr-2 text-green-600"></i>
+                        การวิเคราะห์ทางการเงินและอัตราคืนทุน
+                    </h2>
+                    
+                    <!-- New section for Estimated Cost -->
+                    <div class="p-4 bg-purple-50 rounded-xl border-2 border-purple-400 shadow-md mb-6">
+                        <p class="text-lg font-semibold text-purple-700 mb-1 flex items-center justify-center">
+                            <i data-lucide="wrench" class="w-5 h-5 mr-2"></i>
+                            ค่าติดตั้งคาปาซิเตอร์โดยประมาณ (฿)
+                        </p>
+                        <p id="result-estimated-cost" class="result-value text-purple-800">0.00</p>
+                        <p class="text-xs text-purple-600">คำนวณจาก $\text{1,500}$ บาทต่อ $\text{kVAR}$ ที่ต้องติดตั้ง</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-center">
+                        
+                        <!-- Monthly Savings -->
+                        <div class="p-4 bg-green-100 rounded-xl border-2 border-green-500 shadow-md">
+                            <p class="text-lg font-semibold text-green-700 mb-1 flex items-center justify-center">
+                                <i data-lucide="wallet" class="w-5 h-5 mr-2"></i>
+                                ยอดประหยัด/เดือน (฿)
+                            </p>
+                            <p id="result-monthly-saving" class="result-value text-green-800">0.00</p>
+                            <p class="text-xs text-green-600">จากการยกเลิกค่าปรับ PF</p>
+                        </div>
+
+                        <!-- Payback Period -->
+                        <div class="p-4 bg-yellow-100 rounded-xl border-2 border-yellow-500 shadow-md">
+                            <p class="text-lg font-semibold text-yellow-700 mb-1 flex items-center justify-center">
+                                <i data-lucide="clock" class="w-5 h-5 mr-2"></i>
+                                ระยะเวลาคืนทุน (Payback Period)
+                            </p>
+                            <p id="result-payback-period" class="result-value text-yellow-800 text-2xl">รอการคำนวณ...</p>
+                            <p class="text-xs text-yellow-600">ค่าติดตั้งโดยประมาณต่อการประหยัดค่าปรับต่อเดือน</p>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Recommendation & Benefits (MODIFIED) -->
+                <div class="card bg-white p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                        <i data-lucide="settings-2" class="w-5 h-5 mr-2 text-teal-600"></i>
+                        ข้อเสนอแนะและประโยชน์ทางเทคนิค
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-center">
+                        <!-- Recommended Capacitor Size -->
+                        <div class="p-4 bg-teal-50 rounded-xl border border-teal-200">
+                            <p class="text-lg font-semibold text-teal-700 mb-1 flex items-center justify-center">
+                                <i data-lucide="capacitor" class="w-5 h-5 mr-2"></i>
+                                ขนาดคาปาซิเตอร์ที่ต้องการ ($\text{kVAR}$)
+                            </p>
+                            <p id="result-capacitor-size" class="result-value text-teal-800">0.00</p>
+                            <p class="text-xs text-teal-600">kVAR รวมทั้ง 3 เฟส</p>
+                        </div>
+                        <!-- Estimated Loss Reduction -->
+                        <div class="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                            <p class="text-lg font-semibold text-purple-700 mb-1 flex items-center justify-center">
+                                <i data-lucide="flame" class="w-5 h-5 mr-2"></i>
+                                ลดกำลังไฟฟ้าสูญเสีย ($\text{\%}$)
+                            </p>
+                            <p id="result-loss-reduction" class="result-value text-purple-800">0.00</p>
+                            <p class="text-xs text-purple-600">ประมาณการลดความสูญเสียในสายส่ง</p>
+                        </div>
+                    </div>
+                    
+                    <div id="recommendation-status" class="mt-4 p-4 rounded-xl text-base font-medium hidden"></div>
+
+                </div>
+
+                <!-- Power Triangle Diagram (Simple representation) -->
+                <div class="card bg-gray-800 text-white p-6 shadow-xl shadow-gray-900/50">
+                    <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2 flex items-center text-yellow-300">
+                        <i data-lucide="triangle" class="w-5 h-5 mr-2"></i>
+                        แผนภาพสามเหลี่ยมกำลังไฟฟ้า
+                    </h2>
+                    <div id="power-triangle" class="text-center p-2">
+                        <p class="text-sm text-gray-300">กำลังไฟฟ้ารีแอคทีฟ ($\text{Q}$) ก่อนปรับปรุง</p>
+                        <p id="q-before" class="text-xl font-mono text-blue-300">$\text{Q}$ ($\text{kVAR}$): -</p>
+                        <p class="text-sm text-gray-300 mt-4">กำลังไฟฟ้ารีแอคทีฟ ($\text{Q}'$) หลังปรับปรุง</p>
+                        <p id="q-after" class="text-xl font-mono text-green-300">$\text{Q}'$ ($\text{kVAR}$): -</p>
+                        <p class="text-xs text-gray-500 mt-4">$\text{P}$ ($\text{kW}$) จะคงที่หลังจากปรับปรุง $\text{PF}$</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Initialization (Boilerplate for future extension) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setDoc, doc, collection, getDocs, query, limit, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- Global Firebase Variables (Mandatory for Canvas Environment) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let app, db, auth;
+        let userId = 'anonymous';
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            if (firebaseConfig) {
+                try {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser?.uid || crypto.randomUUID();
+                    // console.log("Firebase initialized. User ID:", userId);
+                } catch (error) {
+                    console.error("Firebase initialization or authentication failed:", error);
+                }
+            } else {
+                console.warn("Firebase configuration not found. Running in local mode.");
+            }
+        }
+        
+        // Call initialization function
+        initializeFirebase();
+
+    </script>
+    
+    <!-- Core Calculation Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            const form = document.getElementById('pf-calculator-form');
+            const errorMessage = document.getElementById('error-message');
+            const kVARInputContainer = document.getElementById('input-kvar-container');
+            const penaltyInputContainer = document.getElementById('input-penalty-container');
+            const kVARInput = document.getElementById('input-kVAR');
+            const penaltyInput = document.getElementById('input-penalty-cost-user');
+            const inputModeRadios = document.querySelectorAll('input[name="kvar-input-mode"]');
+
+            // Constants
+            const PF_STANDARD = 0.85;
+            const TAN_STANDARD = Math.tan(Math.acos(PF_STANDARD)); // ~0.6197
+            const PENALTY_RATE = 56.07; // บาท/kVAR (อ้างอิงอัตรา กฟภ./กฟน. ณ ปัจจุบัน)
+            const COST_PER_KVAR = 1500; // บาท/kVAR (ค่าประมาณการติดตั้งคาปาซิเตอร์)
+
+
+            // --- Input Mode Switch Logic ---
+            function updateInputVisibility(mode) {
+                if (mode === 'kvar') {
+                    kVARInputContainer.classList.remove('hidden');
+                    penaltyInputContainer.classList.add('hidden');
+                    kVARInput.setAttribute('required', 'required');
+                    penaltyInput.removeAttribute('required');
+                } else if (mode === 'penalty') {
+                    kVARInputContainer.classList.add('hidden');
+                    penaltyInputContainer.classList.remove('hidden');
+                    kVARInput.removeAttribute('required');
+                    penaltyInput.setAttribute('required', 'required');
+                }
+            }
+
+            inputModeRadios.forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    updateInputVisibility(event.target.value);
+                });
+            });
+            
+            // Set initial state
+            updateInputVisibility(document.querySelector('input[name="kvar-input-mode"]:checked').value);
+
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                calculatePowerFactor();
+            });
+
+            function showMessage(msg, isError = false) {
+                errorMessage.textContent = msg;
+                errorMessage.classList.toggle('text-red-600', isError);
+                errorMessage.classList.toggle('text-green-600', !isError);
+                errorMessage.classList.remove('hidden');
+            }
+
+            function calculatePowerFactor() {
+                try {
+                    // 1. Get Inputs
+                    const P_kW_onpeak = parseFloat(document.getElementById('input-kW-onpeak').value) || 0;
+                    const P_kW_offpeak = parseFloat(document.getElementById('input-kW-offpeak').value) || 0;
+                    const P_kW_holiday = parseFloat(document.getElementById('input-kW-holiday').value) || 0;
+                    
+                    // Determine the actual Maximum Demand (P_kW) based on the highest value recorded
+                    const P_kW = Math.max(P_kW_onpeak, P_kW_offpeak, P_kW_holiday);
+                    
+                    // Input validation: P_kW must be greater than 0 for industrial/large users
+                    if (P_kW <= 0) {
+                        showMessage('กรุณาป้อนค่ากำลังไฟฟ้าจริงสูงสุด (kW) ที่มากกว่า 0', true);
+                        return;
+                    }
+
+                    const inputMode = document.querySelector('input[name="kvar-input-mode"]:checked').value;
+                    let Q_kVAR;
+                    let penalty_cost_calculated = 0; // The actual penalty calculated from the Q_kVAR found
+                    let kVAR_excess_calculated = 0;
+
+                    // --- Determine Q_kVAR based on input mode (2.) ---
+                    if (inputMode === 'kvar') {
+                        // Mode 1: User provided Q_kVAR directly
+                        Q_kVAR = parseFloat(kVARInput.value);
+                        if (isNaN(Q_kVAR) || Q_kVAR < 0) {
+                            showMessage('กรุณาป้อนค่า kVAR Demand ที่ถูกต้อง (ต้องเป็นตัวเลขและห้ามติดลบ)', true);
+                            return;
+                        }
+                        
+                        // Calculate penalty based on this Q_kVAR (as per standard flow)
+                        kVAR_excess_calculated = Q_kVAR - (P_kW * TAN_STANDARD);
+                        penalty_cost_calculated = Math.max(0, kVAR_excess_calculated) * PENALTY_RATE;
+
+                    } else if (inputMode === 'penalty') {
+                        // Mode 2: User provided Penalty Cost
+                        const penalty_cost_user = parseFloat(penaltyInput.value);
+                        if (isNaN(penalty_cost_user) || penalty_cost_user < 0) {
+                            showMessage('กรุณาป้อนค่าปรับ PF ที่ถูกต้อง (ต้องเป็นตัวเลขและห้ามติดลบ)', true);
+                            return;
+                        }
+                        
+                        penalty_cost_calculated = penalty_cost_user;
+
+                        if (penalty_cost_user > 0) {
+                            // Back-calculate kVAR_excess and Q_kVAR
+                            kVAR_excess_calculated = penalty_cost_user / PENALTY_RATE;
+                            
+                            // Q_kVAR = kVAR_excess + Q_standard
+                            const Q_standard = P_kW * TAN_STANDARD;
+                            Q_kVAR = Q_standard + kVAR_excess_calculated;
+                        } else {
+                            // Penalty is 0. Set Q_kVAR slightly below the penalty trigger point (PF 0.85) 
+                            Q_kVAR = P_kW * TAN_STANDARD * 0.9999; 
+                        }
+                    }
+
+                    // --- 2. Current Status Calculation (PF1) ---
+                    const S_kVA = Math.sqrt(Math.pow(P_kW, 2) + Math.pow(Q_kVAR, 2));
+                    const PF_current = P_kW / S_kVA; // cos(theta1)
+                    
+                    // Angle calculation (radians)
+                    const theta1_rad = Math.acos(PF_current); 
+                    const tan_theta1 = Math.tan(theta1_rad);
+
+                    // --- 3. Penalty Display Logic & Monthly Saving ---
+                    const monthly_savings = penalty_cost_calculated; // Savings is equal to the penalty avoided
+                    
+                    if (penalty_cost_calculated > 0.01) { // Check if penalty is significant
+                        document.getElementById('result-penalty-cost').classList.remove('text-red-800', 'text-green-800');
+                        document.getElementById('result-penalty-cost').classList.add('text-red-800');
+                        document.getElementById('recommendation-status').className = 'mt-4 p-4 rounded-xl text-base font-medium block text-red-800 bg-red-100 border border-red-300';
+                        document.getElementById('recommendation-status').innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5 inline-block mr-2 text-red-600"></i> ระบบของคุณมีค่า PF ต่ำกว่า ${PF_STANDARD}! ต้องเสียค่าปรับ **${penalty_cost_calculated.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} บาท** ต่อเดือน`;
+                    } else {
+                        document.getElementById('result-penalty-cost').classList.remove('text-red-800', 'text-green-800');
+                        document.getElementById('result-penalty-cost').classList.add('text-green-800');
+                        document.getElementById('recommendation-status').className = 'mt-4 p-4 rounded-xl text-base font-medium block text-green-800 bg-green-100 border border-green-300';
+                        document.getElementById('recommendation-status').innerHTML = `<i data-lucide="thumbs-up" class="w-5 h-5 inline-block mr-2 text-green-600"></i> ระบบของคุณมีค่า PF สูงกว่า ${PF_STANDARD} อยู่แล้ว **ไม่ต้องเสียค่าปรับ!**`;
+                    }
+
+                    // --- 4. Capacitor Size Calculation (kVAR_cap) ---
+                    const PF_target = parseFloat(document.getElementById('input-target-pf').value);
+                    
+                    // Target angle calculation (radians)
+                    const theta2_rad = Math.acos(PF_target);
+                    const tan_theta2 = Math.tan(theta2_rad);
+                    
+                    // Formula: kVAR_cap = P * (tan(theta1) - tan(theta2))
+                    let kVAR_cap = P_kW * (tan_theta1 - tan_theta2);
+                    
+                    if (kVAR_cap < 0) {
+                        kVAR_cap = 0; // Already better than target PF, no capacitor needed
+                    }
+
+                    // --- 5. Estimated Installation Cost ---
+                    const estimated_cost = kVAR_cap * COST_PER_KVAR;
+
+                    // --- 6. Estimated Power Loss Reduction ---
+                    let loss_reduction_percent = 0;
+                    if (PF_current < PF_target && PF_current > 0.01) {
+                         // Loss reduction is proportional to (1 - (PF_old/PF_new)^2)
+                         loss_reduction_percent = (1 - (Math.pow(PF_current, 2) / Math.pow(PF_target, 2))) * 100;
+                    }
+
+                    // --- 7. Payback Period Calculation ---
+                    let payback_text;
+                    if (kVAR_cap <= 0.01) {
+                         payback_text = "ไม่จำเป็นต้องติดตั้งเพื่อแก้ไข PF";
+                    } else if (monthly_savings > 0) {
+                        const payback_months = estimated_cost / monthly_savings;
+                        const payback_years = payback_months / 12;
+                        payback_text = `${payback_months.toFixed(1)} เดือน (${payback_years.toFixed(1)} ปี)`;
+                    } else {
+                        payback_text = "ไม่มีค่าปรับรายเดือนเพื่อใช้คำนวณคืนทุน";
+                    }
+                    
+                    // --- 8. Update Dashboard Results ---
+                    
+                    // Current Status
+                    document.getElementById('result-pf-current').textContent = PF_current.toFixed(3);
+                    document.getElementById('result-penalty-cost').textContent = penalty_cost_calculated.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                    document.getElementById('result-apparent-power').textContent = S_kVA.toFixed(2);
+
+                    // Financial Analysis
+                    document.getElementById('result-estimated-cost').textContent = estimated_cost.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                    document.getElementById('result-monthly-saving').textContent = monthly_savings.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                    document.getElementById('result-payback-period').textContent = payback_text;
+
+                    // Recommendation
+                    document.getElementById('result-capacitor-size').textContent = kVAR_cap.toFixed(2);
+                    document.getElementById('result-loss-reduction').textContent = loss_reduction_percent.toFixed(2);
+                    
+                    // Power Triangle Update (Q before/after)
+                    const Q_target = P_kW * tan_theta2;
+                    document.getElementById('q-before').textContent = `Q (kVAR): ${Q_kVAR.toFixed(2)}`;
+                    document.getElementById('q-after').textContent = `Q' (kVAR): ${Q_target.toFixed(2)} (เมื่อ PF = ${PF_target.toFixed(2)})`;
+
+                    showMessage('คำนวณสำเร็จแล้ว! ดูผลลัพธ์ในตารางด้านล่าง', false);
+                    lucide.createIcons(); // Re-render icon
+                
+                } catch (error) {
+                    console.error("Calculation Error:", error);
+                    showMessage('เกิดข้อผิดพลาดในการคำนวณ: ' + error.message, true);
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
