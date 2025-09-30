@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบวิเคราะห์ Power Factor & Capacitor Calculator จากใบแจ้งหนี้</title>
+    <title>ระบบวิเคราะห์ Power Factor & Capacitor Calculator</title> <!-- Updated Title -->
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons for aesthetic -->
@@ -46,7 +46,7 @@
     <div class="max-w-6xl mx-auto">
         <h1 class="text-4xl font-extrabold text-gray-900 mb-8 text-center md:text-left flex items-center justify-center md:justify-start">
             <i data-lucide="plug-zap" class="inline-block w-10 h-10 mr-3 text-indigo-600"></i>
-            ระบบวิเคราะห์ Power Factor & Capacitor Calculator จากใบแจ้งหนี้
+            ระบบวิเคราะห์ Power Factor & Capacitor Calculator <!-- Updated H1 Content -->
         </h1>
         <p class="text-gray-600 mb-10 text-center md:text-left">ป้อนข้อมูลจากใบแจ้งหนี้ค่าไฟฟ้า เพื่อคำนวณค่าปรับและขนาดคาปาซิเตอร์ที่ต้องการ</p>
 
@@ -295,18 +295,43 @@
 
                 </div>
 
-                <!-- Power Triangle Diagram (Simple representation) -->
+                <!-- Power Triangle Diagram (Simple representation) - MODIFIED WITH SVG -->
                 <div class="card bg-gray-800 text-white p-6 shadow-xl shadow-gray-900/50">
                     <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2 flex items-center text-yellow-300">
                         <i data-lucide="triangle" class="w-5 h-5 mr-2"></i>
                         แผนภาพสามเหลี่ยมกำลังไฟฟ้า
                     </h2>
                     <div id="power-triangle" class="text-center p-2">
+                        <!-- Text values retained -->
                         <p class="text-sm text-gray-300">กำลังไฟฟ้ารีแอคทีฟ ($\text{Q}$) ก่อนปรับปรุง</p>
                         <p id="q-before" class="text-xl font-mono text-blue-300">$\text{Q}$ ($\text{kVAR}$): -</p>
                         <p class="text-sm text-gray-300 mt-4">กำลังไฟฟ้ารีแอคทีฟ ($\text{Q}'$) หลังปรับปรุง</p>
                         <p id="q-after" class="text-xl font-mono text-green-300">$\text{Q}'$ ($\text{kVAR}$): -</p>
-                        <p class="text-xs text-gray-500 mt-4">$\text{P}$ ($\text{kW}$) จะคงที่หลังจากปรับปรุง $\text{PF}$</p>
+                        
+                        <!-- SVG Container for Visualization -->
+                        <div class="mt-8 relative h-64 w-full flex justify-center items-center">
+                            <svg id="power-triangle-svg" viewBox="0 0 320 250" class="w-full h-full max-w-sm">
+                                <!-- Grid/Axis lines -->
+                                <line x1="20" y1="210" x2="300" y2="210" stroke="#4b5563" stroke-width="2" /> <!-- P Axis (kW) -->
+                                <line x1="20" y1="210" x2="20" y2="20" stroke="#4b5563" stroke-width="2" /> <!-- Q Axis (kVAR) -->
+                                <text x="305" y="215" fill="#e5e7eb" font-size="12">P (kW)</text>
+                                <text x="10" y="25" fill="#e5e7eb" font-size="12" transform="rotate(-90 10 25)">Q (kVAR)</text>
+                                
+                                <!-- Original Triangle (S1) - Blue -->
+                                <path id="triangle-before" fill="none" stroke="#6366f1" stroke-width="4" stroke-opacity="0.8" />
+                                <text id="label-theta1" fill="#6366f1" font-size="14" font-weight="bold" x="40" y="195">θ₁</text>
+                                
+                                <!-- Corrected Triangle (S2) - Green -->
+                                <path id="triangle-after" fill="none" stroke="#10b981" stroke-width="4" stroke-opacity="0.8" />
+                                <text id="label-theta2" fill="#10b981" font-size="14" font-weight="bold" x="40" y="195">θ₂</text>
+
+                                <!-- Capacitive kVAR (Qc) - Yellow Dashed -->
+                                <line id="line-qc" stroke="#fcd34d" stroke-width="3" stroke-dasharray="5,5" />
+                                <text id="label-qc" fill="#fcd34d" font-size="12" font-weight="bold" />
+                            </svg>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-4">P (kW) คงที่, $\text{S}$ (kVA) ลดลง</p>
                     </div>
                 </div>
             </div>
@@ -385,11 +410,19 @@
                     penaltyInputContainer.classList.add('hidden');
                     kVARInput.setAttribute('required', 'required');
                     penaltyInput.removeAttribute('required');
+                    kVARInput.value = kVARInput.value || 70; // Default kVAR
+                    penaltyInput.value = '';
                 } else if (mode === 'penalty') {
                     kVARInputContainer.classList.add('hidden');
                     penaltyInputContainer.classList.remove('hidden');
                     kVARInput.removeAttribute('required');
                     penaltyInput.setAttribute('required', 'required');
+                    penaltyInput.value = penaltyInput.value || 1000; // Default Penalty
+                    kVARInput.value = '';
+                }
+                // Recalculate if mode changes after initial load
+                if (form.reportValidity()) {
+                     calculatePowerFactor();
                 }
             }
 
@@ -399,6 +432,13 @@
                 });
             });
             
+            // Set initial state and default values (Added default values to inputs for convenience)
+            document.getElementById('input-kW-onpeak').value = 100;
+            document.getElementById('input-kW-offpeak').value = 0;
+            document.getElementById('input-kW-holiday').value = 0;
+            document.getElementById('input-kVAR').value = 70; // Default kVAR
+            document.getElementById('input-penalty-cost-user').value = 1000; // Default Penalty
+
             // Set initial state
             updateInputVisibility(document.querySelector('input[name="kvar-input-mode"]:checked').value);
 
@@ -407,6 +447,14 @@
                 e.preventDefault();
                 calculatePowerFactor();
             });
+            
+            // Recalculate on input change
+            form.addEventListener('input', () => {
+                 if (form.reportValidity()) {
+                     calculatePowerFactor();
+                 }
+            });
+
 
             function showMessage(msg, isError = false) {
                 errorMessage.textContent = msg;
@@ -551,8 +599,11 @@
                     const Q_target = P_kW * tan_theta2;
                     document.getElementById('q-before').textContent = `Q (kVAR): ${Q_kVAR.toFixed(2)}`;
                     document.getElementById('q-after').textContent = `Q' (kVAR): ${Q_target.toFixed(2)} (เมื่อ PF = ${PF_target.toFixed(2)})`;
+                    
+                    // Pass PF_current to the drawing function
+                    drawPowerTriangle(P_kW, Q_kVAR, Q_target, kVAR_cap, PF_current);
 
-                    showMessage('คำนวณสำเร็จแล้ว! ดูผลลัพธ์ในตารางด้านล่าง', false);
+                    // showMessage('คำนวณสำเร็จแล้ว! ดูผลลัพธ์ในตารางด้านล่าง', false); // Removed unnecessary continuous message
                     lucide.createIcons(); // Re-render icon
                 
                 } catch (error) {
@@ -560,8 +611,117 @@
                     showMessage('เกิดข้อผิดพลาดในการคำนวณ: ' + error.message, true);
                 }
             }
+            
+            /**
+             * Draws the Power Triangle (Before and After PFC) using SVG.
+             * @param {number} P_kW - Real power (kW).
+             * @param {number} Q_before - Reactive power before correction (kVAR).
+             * @param {number} Q_after - Reactive power after correction (kVAR).
+             * @param {number} Qc - Required capacitor size (kVAR_cap).
+             * @param {number} PF_current - The actual power factor before correction.
+             */
+            function drawPowerTriangle(P_kW, Q_before, Q_after, Qc, PF_current) {
+                const P_LENGTH = 200; // Fixed pixel length for P (Base of triangle)
+                const ORIGIN_X = 20;
+                const ORIGIN_Y = 210;
+                const MAX_HEIGHT = 180; // Max available height for Q axis
+
+                const maxQ = Math.max(Q_before, Q_after, 0.01); // Ensure maxQ is not zero
+                const scaleFactor = MAX_HEIGHT / (maxQ > 0 ? maxQ : 1); 
+
+                // Calculate pixel heights
+                const Q_before_pixel = Q_before * scaleFactor;
+                const Q_after_pixel = Q_after * scaleFactor;
+
+                // --- Vertices ---
+                // A: Origin (start of Q, start of S) - Reference point (20, 210)
+                const Ax = ORIGIN_X;
+                const Ay = ORIGIN_Y;
+
+                // B: End of P axis (P_kW) - (220, 210)
+                const Bx = ORIGIN_X + P_LENGTH;
+                const By = ORIGIN_Y;
+
+                // C1: Top of Q_before axis (Q_kVAR)
+                const C1x = Bx;
+                const C1y = ORIGIN_Y - Q_before_pixel;
+
+                // C2: Top of Q_after axis (Q_target)
+                const C2x = Bx;
+                const C2y = ORIGIN_Y - Q_after_pixel;
+
+
+                // --- Draw Before Triangle (S1) ---
+                // Path: A -> B -> C1 -> A
+                const pathBefore = `M ${Ax} ${Ay} L ${Bx} ${By} L ${C1x} ${C1y} L ${Ax} ${Ay}`;
+                document.getElementById('triangle-before').setAttribute('d', pathBefore);
+
+                // --- Draw After Triangle (S2) ---
+                // Path: A -> B -> C2 -> A
+                const pathAfter = `M ${Ax} ${Ay} L ${Bx} ${By} L ${C2x} ${C2y} L ${Ax} ${Ay}`;
+                document.getElementById('triangle-after').setAttribute('d', pathAfter);
+
+                // --- Draw Qc Line (Capacitor kVAR) ---
+                const QcLine = document.getElementById('line-qc');
+                const QcLabel = document.getElementById('label-qc');
+                
+                // Determine which Q is higher (Q_before should be higher if correction is needed)
+                const yStart = Math.min(C1y, C2y);
+                const yEnd = Math.max(C1y, C2y);
+                const Qc_kVAR_needed = Math.abs(Q_before - Q_after);
+
+
+                if (Qc_kVAR_needed > 0.01) {
+                    // Line drawn slightly to the right of P axis (Bx+5)
+                    QcLine.setAttribute('x1', C1x + 5);
+                    QcLine.setAttribute('y1', C1y);
+                    QcLine.setAttribute('x2', C2x + 5);
+                    QcLine.setAttribute('y2', C2y);
+
+                    // Label (midpoint of the line + offset)
+                    QcLabel.setAttribute('x', C1x + 10);
+                    QcLabel.setAttribute('y', yStart + (yEnd - yStart) / 2 + 4); // +4 for slight offset
+                    QcLabel.textContent = `Qc = ${Qc.toFixed(2)} kVAR`;
+
+                    QcLine.classList.remove('hidden');
+                    QcLabel.classList.remove('hidden');
+                } else {
+                    QcLine.classList.add('hidden');
+                    QcLabel.classList.add('hidden');
+                }
+                
+                // --- Update Angle Labels (Approximate Position) ---
+                const angleLabelX = Ax + 20;
+                
+                // Theta 1 Label
+                const angleLabelY1 = Ay - (Q_before_pixel / 4);
+                document.getElementById('label-theta1').setAttribute('x', angleLabelX);
+                document.getElementById('label-theta1').setAttribute('y', angleLabelY1);
+                // Use PF_current which is passed as an argument
+                document.getElementById('label-theta1').textContent = `θ₁ (${PF_current.toFixed(3)})`; 
+                
+                // Theta 2 Label
+                const angleLabelY2 = Ay - (Q_after_pixel / 4);
+                document.getElementById('label-theta2').setAttribute('x', angleLabelX);
+                document.getElementById('label-theta2').setAttribute('y', angleLabelY2);
+                document.getElementById('label-theta2').textContent = `θ₂ (${document.getElementById('input-target-pf').value})`; // Show target PF value
+                
+                // Hide theta1 label if Q_before is too small
+                if (Q_before_pixel < 15) {
+                    document.getElementById('label-theta1').textContent = ``;
+                }
+                // Hide theta2 label if Q_after is too small
+                if (Q_after_pixel < 15) {
+                    document.getElementById('label-theta2').textContent = ``;
+                }
+            }
+            
+            // Initial calculation on load
+            if (form.reportValidity()) {
+                 calculatePowerFactor();
+            }
+
         });
     </script>
-
 </body>
 </html>
